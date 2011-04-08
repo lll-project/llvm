@@ -672,7 +672,7 @@ bool X86DAGToDAGISel::MatchAddress(SDValue N, X86ISelAddressMode &AM) {
   // Post-processing: Convert foo to foo(%rip), even in non-PIC mode,
   // because it has a smaller encoding.
   // TODO: Which other code models can use this?
-  if (TM.getCodeModel() == CodeModel::Small &&
+  if ((TM.getCodeModel() == CodeModel::Small || TM.getCodeModel() == CodeModel::Kernel) &&
       Subtarget->is64Bit() &&
       AM.Scale == 1 &&
       AM.BaseType == X86ISelAddressMode::RegBase &&

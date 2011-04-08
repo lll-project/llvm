@@ -77,7 +77,7 @@ ClassifyGlobalReference(const GlobalValue *GV, const TargetMachine &TM) const {
       assert(isTargetELF() && "Unknown rip-relative target");
 
       // Extra load is needed for all externally visible.
-      if (!GV->hasLocalLinkage() && GV->hasDefaultVisibility())
+      if (TM.getCodeModel() != CodeModel::Kernel && !GV->hasLocalLinkage() && GV->hasDefaultVisibility())
         return X86II::MO_GOTPCREL;
     }
 

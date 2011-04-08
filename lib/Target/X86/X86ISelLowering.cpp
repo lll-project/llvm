@@ -2276,6 +2276,7 @@ X86TargetLowering::LowerCall(SDValue Chain, SDValue Callee,
       // has hidden or protected visibility, or if it is static or local, then
       // we don't need to use the PLT - we can directly call it.
       if (Subtarget->isTargetELF() &&
+          getTargetMachine().getCodeModel() != CodeModel::Kernel &&
           getTargetMachine().getRelocationModel() == Reloc::PIC_ &&
           GV->hasDefaultVisibility() && !GV->hasLocalLinkage()) {
         OpFlags = X86II::MO_PLT;
@@ -2297,6 +2298,7 @@ X86TargetLowering::LowerCall(SDValue Chain, SDValue Callee,
     // On ELF targets, in either X86-64 or X86-32 mode, direct calls to
     // external symbols should go through the PLT.
     if (Subtarget->isTargetELF() &&
+        getTargetMachine().getCodeModel() != CodeModel::Kernel &&
         getTargetMachine().getRelocationModel() == Reloc::PIC_) {
       OpFlags = X86II::MO_PLT;
     } else if (Subtarget->isPICStyleStubAny() &&
@@ -2833,7 +2835,7 @@ bool X86::isOffsetSuitableForCodeModel(int64_t Offset, CodeModel::Model M,
   // For kernel code model we know that all object resist in the negative half
   // of 32bits address space. We may not accept negative offsets, since they may
   // be just off and we may accept pretty large positive ones.
-  if (M == CodeModel::Kernel && Offset > 0)
+  if (M == CodeModel::Kernel && (Offset > 0 || Offset < -2*1024*1024*1024+16*1024*1024))
     return true;
 
   return false;

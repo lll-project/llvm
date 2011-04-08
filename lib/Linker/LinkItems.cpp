@@ -178,8 +178,11 @@ bool Linker::LinkInFile(const sys::Path &File, bool &is_native) {
 
   // Determine what variety of file it is.
   std::string Magic;
-  if (!File.getMagicNumber(Magic, 64))
+  if (!File.getMagicNumber(Magic, 64)) {
+    if (File.getMagicNumber(Magic, 8) && Magic == "!<arch>\n")
+      return false;
     return error("Cannot find linker input '" + File.str() + "'");
+  }
 
   switch (sys::IdentifyFileType(Magic.c_str(), 64)) {
     default: llvm_unreachable("Bad file type identification");

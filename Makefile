@@ -231,8 +231,9 @@ SUB-SVN-DIRS = $(AWK) '/\?\ \ \ \ \ \ / {print $$2}'   \
 		| $(AWK) '/Path:\ / {print $$2}'
 
 update:
+	$(Echo) Updating $(LLVM_SRC_ROOT)
 	$(SVN) $(SVN-UPDATE-OPTIONS) update $(LLVM_SRC_ROOT)
-	@ $(SVN) status $(LLVM_SRC_ROOT) | $(SUB-SVN-DIRS) | xargs $(SVN) $(SVN-UPDATE-OPTIONS) update
+	@ $(SVN) status $(LLVM_SRC_ROOT) | $(SUB-SVN-DIRS) | xargs -tn1 $(SVN) $(SVN-UPDATE-OPTIONS) update
 
 happiness: update all check-all
 
