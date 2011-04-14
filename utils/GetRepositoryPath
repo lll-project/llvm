@@ -19,7 +19,7 @@ if [ -d .svn ]; then
 elif [ -d .git/svn ]; then
   git svn info | grep 'URL:' | cut -d: -f2-
 elif [ -d .git ]; then
-  git remote -v | grep 'fetch' | awk '{ print $2 }'
+  git remote -v | grep -m 1 'fetch' | awk '{ printf $2 }'
 else
   exit 1;
 fi

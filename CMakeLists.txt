@@ -1,7 +1,7 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
 project(LLVM)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.6.4)
 
 # Add path for custom modules
 set(CMAKE_MODULE_PATH
@@ -10,7 +10,21 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
   )
 
-set(PACKAGE_VERSION "3.0")
+set(LLVM_MAIN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/include)
+set(LLVM_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(LLVM_TOOLS_BINARY_DIR ${LLVM_BINARY_DIR}/bin)
+set(LLVM_EXAMPLES_BINARY_DIR ${LLVM_BINARY_DIR}/examples)
+set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)")
+set(CMAKE_INSTALL_PREFIX "/usr/local" CACHE STRING "Installation prefix")
+
+# rpath configuration
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+set(PACKAGE_VERSION "2.9")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -38,12 +52,6 @@ endif()
 
 string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
-set(LLVM_MAIN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-set(LLVM_MAIN_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/include)
-set(LLVM_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(LLVM_TOOLS_BINARY_DIR ${LLVM_BINARY_DIR}/bin)
-set(LLVM_EXAMPLES_BINARY_DIR ${LLVM_BINARY_DIR}/examples)
-set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
 
 if( NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR )
   file(GLOB_RECURSE
