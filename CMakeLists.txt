@@ -17,6 +17,8 @@ set(LLVM_TOOLS_BINARY_DIR ${LLVM_BINARY_DIR}/bin)
 set(LLVM_EXAMPLES_BINARY_DIR ${LLVM_BINARY_DIR}/examples)
 set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)")
 set(CMAKE_INSTALL_PREFIX "/usr/local" CACHE STRING "Installation prefix")
+add_definitions("-DLLVM_INSTALL_PREFIX_STRING=\"${CMAKE_INSTALL_PREFIX}\"")
+add_definitions("-DLLVM_INSTALL_PREFIX_NAME=${CMAKE_INSTALL_PREFIX}")
 
 # rpath configuration
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
