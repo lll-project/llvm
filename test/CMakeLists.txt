@@ -90,7 +90,7 @@ if(PYTHONINTERP_FOUND)
     ${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
     @ONLY)
 
-  add_custom_target(check
+  add_custom_target(llvm.check
     COMMAND ${PYTHON_EXECUTABLE}
                 ${LLVM_SOURCE_DIR}/utils/lit/lit.py
                 --param llvm_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
@@ -100,10 +100,10 @@ if(PYTHONINTERP_FOUND)
                 ${LIT_ARGS}
                 ${CMAKE_CURRENT_BINARY_DIR}
                 COMMENT "Running LLVM regression tests")
-  set_target_properties(check PROPERTIES FOLDER "Tests")
+  set_target_properties(llvm.check PROPERTIES FOLDER "Tests")
 
   add_custom_target(check.deps)
-  add_dependencies(check check.deps)
+  add_dependencies(llvm.check check.deps)
   add_dependencies(check.deps
                 UnitTests
                 BugpointPasses LLVMHello
