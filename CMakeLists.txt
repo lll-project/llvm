@@ -162,7 +162,7 @@ else()
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
 endif()
 
-# All options refered to from HandleLLVMOptions have to be specified
+# All options referred to from HandleLLVMOptions have to be specified
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
 include(config-ix)

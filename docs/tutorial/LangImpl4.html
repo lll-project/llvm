@@ -11,7 +11,7 @@
 
 <body>
 
-<div class="doc_title">Kaleidoscope: Adding JIT and Optimizer Support</div>
+<h1>Kaleidoscope: Adding JIT and Optimizer Support</h1>
 
 <ul>
 <li><a href="index.html">Up to Tutorial Index</a></li>
@@ -33,7 +33,7 @@ Flow</li>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"><a name="intro">Chapter 4 Introduction</a></div>
+<h2><a name="intro">Chapter 4 Introduction</a></h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -48,8 +48,7 @@ for the Kaleidoscope language.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"><a name="trivialconstfold">Trivial Constant
-Folding</a></div>
+<h2><a name="trivialconstfold">Trivial Constant Folding</a></h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -134,8 +133,7 @@ range of optimizations that you can use, in the form of "passes".</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"><a name="optimizerpasses">LLVM Optimization
- Passes</a></div>
+<h2><a name="optimizerpasses">LLVM Optimization Passes</a></h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -266,7 +264,7 @@ executing it!</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"><a name="jit">Adding a JIT Compiler</a></div>
+<h2><a name="jit">Adding a JIT Compiler</a></h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -474,7 +472,7 @@ tackling some interesting LLVM IR issues along the way.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section"><a name="code">Full Code Listing</a></div>
+<h2><a name="code">Full Code Listing</a></h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -1078,7 +1076,7 @@ int main() {
 
   // Create the JIT.  This takes ownership of the module.
   std::string ErrStr;
-  TheExecutionEngine = EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
+TheExecutionEngine = EngineBuilder(TheModule).setErrorStr(&amp;ErrStr).create();
   if (!TheExecutionEngine) {
     fprintf(stderr, "Could not create ExecutionEngine: %s\n", ErrStr.c_str());
     exit(1);
@@ -1130,7 +1128,7 @@ int main() {
   src="http://www.w3.org/Icons/valid-html401" alt="Valid HTML 4.01!"></a>
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
-  <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
+  <a href="http://llvm.org/">The LLVM Compiler Infrastructure</a><br>
   Last modified: $Date$
 </address>
 </body>

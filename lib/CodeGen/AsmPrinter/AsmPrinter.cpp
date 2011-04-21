@@ -33,6 +33,7 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Target/Mangler.h"
+#include "llvm/Target/TargetAsmInfo.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
@@ -485,38 +486,10 @@ void AsmPrinter::EmitFunctionEntryLabel() {
 }
 
 
-static void EmitDebugLoc(DebugLoc DL, const MachineFunction *MF,
-                         raw_ostream &CommentOS) {
-  const LLVMContext &Ctx = MF->getFunction()->getContext();
-  if (!DL.isUnknown()) {          // Print source line info.
-    DIScope Scope(DL.getScope(Ctx));
-    // Omit the directory, because it's likely to be long and uninteresting.
-    if (Scope.Verify())
-      CommentOS << Scope.getFilename();
-    else
-      CommentOS << "<unknown>";
-    CommentOS << ':' << DL.getLine();
-    if (DL.getCol() != 0)
-      CommentOS << ':' << DL.getCol();
-    DebugLoc InlinedAtDL = DebugLoc::getFromDILocation(DL.getInlinedAt(Ctx));
-    if (!InlinedAtDL.isUnknown()) {
-      CommentOS << "[ ";
-      EmitDebugLoc(InlinedAtDL, MF, CommentOS);
-      CommentOS << " ]";
-    }
-  }
-}
-
 /// EmitComments - Pretty-print comments for instructions.
 static void EmitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
   const MachineFunction *MF = MI.getParent()->getParent();
   const TargetMachine &TM = MF->getTarget();
-
-  DebugLoc DL = MI.getDebugLoc();
-  if (!DL.isUnknown()) {          // Print source line info.
-    EmitDebugLoc(DL, MF, CommentOS);
-    CommentOS << '\n';
-  }
 
   // Check for spills and reloads
   int FI;
@@ -624,6 +597,28 @@ static bool EmitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
   return true;
 }
 
+void AsmPrinter::emitPrologLabel(const MachineInstr &MI) {
+  MCSymbol *Label = MI.getOperand(0).getMCSymbol();
+  if (MAI->getExceptionHandlingType() != ExceptionHandling::DwarfCFI) {
+    OutStreamer.EmitLabel(Label);
+    return;
+  }
+
+  const MachineFunction &MF = *MI.getParent()->getParent();
+  MachineModuleInfo &MMI = MF.getMMI();
+  std::vector<MachineMove> &Moves = MMI.getFrameMoves();
+  const MachineMove *Move = NULL;
+  for (std::vector<MachineMove>::iterator I = Moves.begin(),
+         E = Moves.end(); I != E; ++I) {
+    if (I->getLabel() == Label) {
+      Move = &*I;
+      break;
+    }
+  }
+  assert(Move);
+  EmitCFIFrameMove(*Move);
+}
+
 /// EmitFunctionBody - This method emits the body and trailer for a
 /// function.
 void AsmPrinter::EmitFunctionBody() {
@@ -660,6 +655,9 @@ void AsmPrinter::EmitFunctionBody() {
 
       switch (II->getOpcode()) {
       case TargetOpcode::PROLOG_LABEL:
+        emitPrologLabel(*II);
+        break;
+
       case TargetOpcode::EH_LABEL:
       case TargetOpcode::GC_LABEL:
         OutStreamer.EmitLabel(II->getOperand(0).getMCSymbol());

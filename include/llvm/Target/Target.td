@@ -78,6 +78,13 @@ class Register<string n> {
   // -1 indicates that the gcc number is undefined and -2 that register number
   // is invalid for this mode/flavour.
   list<int> DwarfNumbers = [];
+
+  // CostPerUse - Additional cost of instructions using this register compared
+  // to other registers in its class. The register allocator will try to
+  // minimize the number of instructions using a register with a CostPerUse.
+  // This is used by the x86-64 and ARM Thumb targets where some registers 
+  // require larger instruction encodings.
+  int CostPerUse = 0;
 }
 
 // RegisterWithSubRegs - This can be used to define instances of Register which
@@ -591,9 +598,10 @@ class MnemonicAlias<string From, string To> {
 /// InstAlias - This defines an alternate assembly syntax that is allowed to
 /// match an instruction that has a different (more canonical) assembly
 /// representation.
-class InstAlias<string Asm, dag Result> {
+class InstAlias<string Asm, dag Result, bit Emit = 0b1> {
   string AsmString = Asm;      // The .s format to match the instruction with.
   dag ResultInst = Result;     // The MCInst to generate.
+  bit EmitAlias = Emit;        // Emit the alias instead of what's aliased.
 
   // Predicates - Predicates that must be true for this to match.
   list<Predicate> Predicates = [];

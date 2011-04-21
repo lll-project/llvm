@@ -8,9 +8,9 @@
 </head>
 <body>
 
-<div class="doc_title">
+<h1>
   Getting Started with the LLVM System  
-</div>
+</h1>
 
 <ul>
   <li><a href="#overview">Overview</a>
@@ -62,7 +62,7 @@
   <p>Written by: 
     <a href="mailto:criswell@uiuc.edu">John Criswell</a>, 
     <a href="mailto:sabre@nondot.org">Chris Lattner</a>,
-    <a href="http://misha.brukman.net">Misha Brukman</a>, 
+    <a href="http://misha.brukman.net/">Misha Brukman</a>, 
     <a href="http://www.cs.uiuc.edu/~vadve">Vikram Adve</a>, and
     <a href="mailto:gshi1@uiuc.edu">Guochun Shi</a>.
   </p>
@@ -70,9 +70,9 @@
 
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
-  <a name="overview"><b>Overview</b></a>
-</div>
+<h2>
+  <a name="overview">Overview</a>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -102,9 +102,9 @@ and performance.
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
-  <a name="quickstart"><b>Getting Started Quickly (A Summary)</b></a>
-</div>
+<h2>
+  <a name="quickstart">Getting Started Quickly (A Summary)</a>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -116,13 +116,13 @@ and performance.
   <li>Read the documentation.</li>
   <li>Remember that you were warned twice about reading the documentation.</li>
   <li>Install the llvm-gcc-4.2 front end if you intend to compile C or C++
-      (see <a href="#installcf">Install the GCC Front End</a> for details):</li>
+      (see <a href="#installcf">Install the GCC Front End</a> for details):
     <ol>
       <li><tt>cd <i>where-you-want-the-C-front-end-to-live</i></tt></li>
       <li><tt>gunzip --stdout llvm-gcc-4.2-<i>version</i>-<i>platform</i>.tar.gz | tar -xvf -</tt></li>
 	  <li><tt><i>install-binutils-binary-from-MinGW</i></tt> (Windows only)</li>
 	  <li>Note: If the binary extension is "<tt>.bz</tt>" use <tt>bunzip2</tt> instead of <tt>gunzip</tt>.</li>
-	  <li>Note: On Windows, use <a href="http://www.7-zip.org">7-Zip</a> or a similar archiving tool.</li>
+	  <li>Note: On Windows, use <a href="http://www.7-zip.org/">7-Zip</a> or a similar archiving tool.</li>
 	  <li>Add <tt>llvm-gcc</tt>'s "<tt>bin</tt>" directory to your <tt>PATH</tt> environment variable.</li>
     </ol></li>
 
@@ -191,9 +191,9 @@ Layout</a> to learn about the layout of the source code tree.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
-  <a name="requirements"><b>Requirements</b></a>
-</div>
+<h2>
+  <a name="requirements">Requirements</a>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -205,9 +205,9 @@ software you will need.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
-  <a name="hardware"><b>Hardware</b></a>
-</div>
+<h3>
+  <a name="hardware">Hardware</a>
+</h3>
 
 <div class="doc_text">
 
@@ -344,9 +344,9 @@ up</a></li>
     ActivePerl, as these have Windows-specifics that will cause the
     build to fail.</a></li>
 <li><a name="pf_11">To use LLVM modules on Win32-based system,
-    you may configure LLVM with <i>&quot;--enable-shared&quot;</i>.</li>
+    you may configure LLVM with <i>&quot;--enable-shared&quot;</i>.</a></li>
 <li><a name="pf_12">To compile SPU backend, you need to add
-    <tt>&quot;LDFLAGS=-Wl,--stack,16777216&quot;</tt> to configure.</li>
+    <tt>&quot;LDFLAGS=-Wl,--stack,16777216&quot;</tt> to configure.</a></li>
 </ol>
 </div>
 
@@ -370,7 +370,9 @@ href="GCCFEBuildInstrs.html">try to compile it</a> on your platform.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="software"><b>Software</b></a></div>
+<h3>
+  <a name="software">Software</a>
+</h3>
 <div class="doc_text">
   <p>Compiling LLVM requires that you have several software packages 
   installed. The table below lists those required packages. The Package column
@@ -387,13 +389,13 @@ href="GCCFEBuildInstrs.html">try to compile it</a> on your platform.</p>
     </tr>
 
     <tr>
-      <td><a href="http://gcc.gnu.org">GCC</a></td>
+      <td><a href="http://gcc.gnu.org/">GCC</a></td>
       <td>3.4.2</td>
       <td>C/C++ compiler<sup><a href="#sf1">1</a></sup></td>
     </tr>
 
     <tr>
-      <td><a href="http://www.gnu.org/software/texinfo">TeXinfo</a></td>
+      <td><a href="http://www.gnu.org/software/texinfo/">TeXinfo</a></td>
       <td>4.5</td>
       <td>For building the CFE</td>
     </tr>
@@ -440,13 +442,13 @@ href="GCCFEBuildInstrs.html">try to compile it</a> on your platform.</p>
     </tr>
 
     <tr>
-      <td><a href="http://www.gnu.org/software/autoconf">GNU Autoconf</a></td>
+      <td><a href="http://www.gnu.org/software/autoconf/">GNU Autoconf</a></td>
       <td>2.60</td>
       <td>Configuration script builder<sup><a href="#sf4">4</a></sup></td>
     </tr>
 
     <tr>
-      <td><a href="http://www.gnu.org/software/automake">GNU Automake</a></td>
+      <td><a href="http://www.gnu.org/software/automake/">GNU Automake</a></td>
       <td>1.9.6</td>
       <td>aclocal macro generator<sup><a href="#sf4">4</a></sup></td>
     </tr>
@@ -508,9 +510,9 @@ href="GCCFEBuildInstrs.html">try to compile it</a> on your platform.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="brokengcc">Broken versions of GCC and other tools</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -608,9 +610,9 @@ upgrading to a newer version of Gold.</p>
 
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
-  <a name="starting"><b>Getting Started with LLVM</b></a>
-</div>
+<h2>
+  <a name="starting">Getting Started with LLVM</a>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -626,9 +628,9 @@ help via e-mail.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="terminology">Terminology and Notation</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -663,9 +665,9 @@ All these paths are absolute:</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="environment">Setting Up Your Environment</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -686,9 +688,9 @@ variables.
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="unpack">Unpacking the LLVM Archives</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -720,9 +722,9 @@ compressed with the gzip program.
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="checkout">Checkout LLVM from Subversion</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -791,9 +793,9 @@ instructions</a> to successfully get and build the LLVM GCC front-end.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="git_mirror">GIT mirror</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -801,18 +803,18 @@ instructions</a> to successfully get and build the LLVM GCC front-end.</p>
   sync automatically with each Subversion commit and contain all necessary
   git-svn marks (so, you can recreate git-svn metadata locally). Note that right
   now mirrors reflect only <tt>trunk</tt> for each project. You can do the
-  read-only GIT clone of LLVM via: 
+  read-only GIT clone of LLVM via:</p>
+
 <pre>
 % git clone http://llvm.org/git/llvm.git
 </pre>
-</p>
 
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="installcf">Install the GCC Front End</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -823,7 +825,7 @@ you can optionally <a href="GCCFEBuildInstrs.html">build llvm-gcc yourself</a> a
 main LLVM repository.</p>
 
 <p>To install the GCC front end, do the following (on Windows, use an archival tool
-like <a href="http://www.7-zip.org">7-zip</a> that understands gzipped tars):</p>
+like <a href="http://www.7-zip.org/">7-zip</a> that understands gzipped tars):</p>
 
 <ol>
   <li><tt>cd <i>where-you-want-the-front-end-to-live</i></tt></li>
@@ -880,9 +882,9 @@ please let us know how you would like to see things improved by dropping us a no
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="config">Local LLVM Configuration</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -1002,9 +1004,9 @@ script to configure the build system:</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="compile">Compiling the LLVM Suite Source Code</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -1136,9 +1138,9 @@ that directory that is out of date.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="cross-compile">Cross-Compiling LLVM</a>
-</div>
+</h3>
 
 <div class="doc_text">
   <p>It is possible to cross-compile LLVM itself. That is, you can create LLVM
@@ -1154,9 +1156,9 @@ that directory that is out of date.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="objfiles">The Location of LLVM Object Files</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -1214,9 +1216,9 @@ named after the build type:</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection">
+<h3>
   <a name="optionalconfig">Optional Configuration Items</a>
-</div>
+</h3>
 
 <div class="doc_text">
 
@@ -1238,7 +1240,7 @@ $ ./hello.bc
 
 <p>
 This allows you to execute LLVM bitcode files directly.  On Debian, you 
-can also use this command instead of the 'echo' command above:</p>
+can also use this command instead of the 'echo' command above:
 </p>
 
 <div class="doc_code">
@@ -1250,29 +1252,35 @@ $ sudo update-binfmts --install llvm /path/to/lli --magic 'BC'
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
-  <a name="layout"><b>Program Layout</b></a>
-</div>
+<h2>
+  <a name="layout">Program Layout</a>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
 
 <p>One useful source of information about the LLVM source base is the LLVM <a
-href="http://www.doxygen.org">doxygen</a> documentation available at <tt><a
+href="http://www.doxygen.org/">doxygen</a> documentation available at <tt><a
 href="http://llvm.org/doxygen/">http://llvm.org/doxygen/</a></tt>.
 The following is a brief introduction to code layout:</p>
 
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="examples"><tt>llvm/examples</tt></a></div>
+<h3>
+  <a name="examples"><tt>llvm/examples</tt></a>
+</h3>
+
 <div class="doc_text">
   <p>This directory contains some simple examples of how to use the LLVM IR and
   JIT.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="include"><tt>llvm/include</tt></a></div>
+<h3>
+  <a name="include"><tt>llvm/include</tt></a>
+</h3>
+
 <div class="doc_text">
 
 <p>This directory contains public header files exported from the LLVM
@@ -1300,7 +1308,10 @@ library. The three main subdirectories of this directory are:</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="lib"><tt>llvm/lib</tt></a></div>
+<h3>
+  <a name="lib"><tt>llvm/lib</tt></a>
+</h3>
+
 <div class="doc_text">
 
 <p>This directory contains most of the source files of the LLVM system. In LLVM,
@@ -1366,7 +1377,10 @@ different <a href="#tools">tools</a>.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="projects"><tt>llvm/projects</tt></a></div>
+<h3>
+  <a name="projects"><tt>llvm/projects</tt></a>
+</h3>
+
 <div class="doc_text">
   <p>This directory contains projects that are not strictly part of LLVM but are
   shipped with LLVM. This is also the directory where you should create your own
@@ -1375,7 +1389,10 @@ different <a href="#tools">tools</a>.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="runtime"><tt>llvm/runtime</tt></a></div>
+<h3>
+  <a name="runtime"><tt>llvm/runtime</tt></a>
+</h3>
+
 <div class="doc_text">
 
 <p>This directory contains libraries which are compiled into LLVM bitcode and
@@ -1389,7 +1406,10 @@ end to compile.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="test"><tt>llvm/test</tt></a></div>
+<h3>
+  <a name="test"><tt>llvm/test</tt></a>
+</h3>
+
 <div class="doc_text">
   <p>This directory contains feature and regression tests and other basic sanity
   checks on the LLVM infrastructure. These are intended to run quickly and cover
@@ -1397,7 +1417,10 @@ end to compile.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="test-suite"><tt>test-suite</tt></a></div>
+<h3>
+  <a name="test-suite"><tt>test-suite</tt></a>
+</h3>
+
 <div class="doc_text">
   <p>This is not a directory in the normal llvm module; it is a separate
   Subversion
@@ -1413,7 +1436,10 @@ end to compile.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="tools"><tt>llvm/tools</tt></a></div>
+<h3>
+  <a name="tools"><tt>llvm/tools</tt></a>
+</h3>
+
 <div class="doc_text">
 
 <p>The <b>tools</b> directory contains the executables built out of the
@@ -1498,7 +1524,10 @@ information is in the <a href="CommandGuide/index.html">Command Guide</a>.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="utils"><tt>llvm/utils</tt></a></div>
+<h3>
+  <a name="utils"><tt>llvm/utils</tt></a>
+</h3>
+
 <div class="doc_text">
 
 <p>This directory contains utilities for working with LLVM source code, and some
@@ -1561,9 +1590,9 @@ are code generators for parts of LLVM infrastructure.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="tutorial">An Example Using the LLVM Tool Chain</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -1580,7 +1609,9 @@ output.</p>
 </div>
 
 <!-- ======================================================================= -->
-<div class="doc_subsection"><a name="tutorial4">Example with llvm-gcc4</a></div>
+<h3>
+  <a name="tutorial4">Example with llvm-gcc4</a>
+</h3>
 
 <div class="doc_text">
 
@@ -1665,9 +1696,9 @@ int main() {
 
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="problems">Common Problems</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -1679,9 +1710,9 @@ Asked Questions</a> page.</p>
 </div>
 
 <!-- *********************************************************************** -->
-<div class="doc_section">
+<h2>
   <a name="links">Links</a>
-</div>
+</h2>
 <!-- *********************************************************************** -->
 
 <div class="doc_text">
@@ -1712,7 +1743,7 @@ out:</p>
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.x10sys.com/rspencer/">Reid Spencer</a><br>
-  <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
+  <a href="http://llvm.org/">The LLVM Compiler Infrastructure</a><br>
   Last modified: $Date$
 </address>
 </body>

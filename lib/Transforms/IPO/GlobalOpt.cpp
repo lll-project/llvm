@@ -21,6 +21,7 @@
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
 #include "llvm/Module.h"
+#include "llvm/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -1944,36 +1945,24 @@ bool GlobalOpt::OptimizeGlobalVars(Module &M) {
   return Changed;
 }
 
-/// FindGlobalCtors - Find the llvm.globalctors list, verifying that all
+/// FindGlobalCtors - Find the llvm.global_ctors list, verifying that all
 /// initializers have an init priority of 65535.
 GlobalVariable *GlobalOpt::FindGlobalCtors(Module &M) {
   GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors");
   if (GV == 0) return 0;
   
-  // Found it, verify it's an array of { int, void()* }.
-  const ArrayType *ATy =dyn_cast<ArrayType>(GV->getType()->getElementType());
-  if (!ATy) return 0;
-  const StructType *STy = dyn_cast<StructType>(ATy->getElementType());
-  if (!STy || STy->getNumElements() != 2 ||
-      !STy->getElementType(0)->isIntegerTy(32)) return 0;
-  const PointerType *PFTy = dyn_cast<PointerType>(STy->getElementType(1));
-  if (!PFTy) return 0;
-  const FunctionType *FTy = dyn_cast<FunctionType>(PFTy->getElementType());
-  if (!FTy || !FTy->getReturnType()->isVoidTy() ||
-      FTy->isVarArg() || FTy->getNumParams() != 0)
-    return 0;
-
   // Verify that the initializer is simple enough for us to handle. We are
   // only allowed to optimize the initializer if it is unique.
   if (!GV->hasUniqueInitializer()) return 0;
-  
-  ConstantArray *CA = dyn_cast<ConstantArray>(GV->getInitializer());
-  if (!CA) return 0;
-  
+
+  if (isa<ConstantAggregateZero>(GV->getInitializer()))
+    return GV;
+  ConstantArray *CA = cast<ConstantArray>(GV->getInitializer());
+
   for (User::op_iterator i = CA->op_begin(), e = CA->op_end(); i != e; ++i) {
-    ConstantStruct *CS = dyn_cast<ConstantStruct>(*i);
-    if (CS == 0) return 0;
-    
+    if (isa<ConstantAggregateZero>(*i))
+      continue;
+    ConstantStruct *CS = cast<ConstantStruct>(*i);
     if (isa<ConstantPointerNull>(CS->getOperand(1)))
       continue;
 
@@ -1982,8 +1971,8 @@ GlobalVariable *GlobalOpt::FindGlobalCtors(Module &M) {
       return 0;
 
     // Init priority must be standard.
-    ConstantInt *CI = dyn_cast<ConstantInt>(CS->getOperand(0));
-    if (!CI || CI->getZExtValue() != 65535)
+    ConstantInt *CI = cast<ConstantInt>(CS->getOperand(0));
+    if (CI->getZExtValue() != 65535)
       return 0;
   }
 
@@ -1993,6 +1982,8 @@ GlobalVariable *GlobalOpt::FindGlobalCtors(Module &M) {
 /// ParseGlobalCtors - Given a llvm.global_ctors list that we can understand,
 /// return a list of the functions and null terminator as a vector.
 static std::vector<Function*> ParseGlobalCtors(GlobalVariable *GV) {
+  if (GV->getInitializer()->isNullValue())
+    return std::vector<Function*>();
   ConstantArray *CA = cast<ConstantArray>(GV->getInitializer());
   std::vector<Function*> Result;
   Result.reserve(CA->getNumOperands());
@@ -2023,7 +2014,7 @@ static GlobalVariable *InstallGlobalCtors(GlobalVariable *GCL,
       const PointerType *PFTy = PointerType::getUnqual(FTy);
       CSVals[1] = Constant::getNullValue(PFTy);
       CSVals[0] = ConstantInt::get(Type::getInt32Ty(GCL->getContext()),
-                                   2147483647);
+                                   0x7fffffff);
     }
     CAList.push_back(ConstantStruct::get(GCL->getContext(), CSVals, false));
   }

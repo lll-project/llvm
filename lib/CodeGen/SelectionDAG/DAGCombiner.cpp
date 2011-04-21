@@ -3323,8 +3323,10 @@ SDValue DAGCombiner::visitSRL(SDNode *N) {
       return DAG.getUNDEF(VT);
 
     if (!LegalTypes || TLI.isTypeDesirableForOp(ISD::SRL, SmallVT)) {
+      uint64_t ShiftAmt = N1C->getZExtValue();
       SDValue SmallShift = DAG.getNode(ISD::SRL, N0.getDebugLoc(), SmallVT,
-                                       N0.getOperand(0), N1);
+                                       N0.getOperand(0),
+                          DAG.getConstant(ShiftAmt, getShiftAmountTy(SmallVT)));
       AddToWorkList(SmallShift.getNode());
       return DAG.getNode(ISD::ANY_EXTEND, N->getDebugLoc(), VT, SmallShift);
     }
@@ -3882,7 +3884,7 @@ SDValue DAGCombiner::visitZERO_EXTEND(SDNode *N) {
         // CombineTo deleted the truncate, if needed, but not what's under it.
         AddToWorkList(oye);
       }
-      return DAG.getNode(ISD::ZERO_EXTEND, N->getDebugLoc(), VT, NarrowLoad);
+      return SDValue(N, 0);   // Return N so it doesn't get rechecked!
     }
   }
 
@@ -4110,7 +4112,7 @@ SDValue DAGCombiner::visitANY_EXTEND(SDNode *N) {
         // CombineTo deleted the truncate, if needed, but not what's under it.
         AddToWorkList(oye);
       }
-      return DAG.getNode(ISD::ANY_EXTEND, N->getDebugLoc(), VT, NarrowLoad);
+      return SDValue(N, 0);   // Return N so it doesn't get rechecked!
     }
   }
 
@@ -6265,6 +6267,10 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
                           ST->isNonTemporal(), OrigAlign);
   }
 
+  // Turn 'store undef, Ptr' -> nothing.
+  if (Value.getOpcode() == ISD::UNDEF && ST->isUnindexed())
+    return Chain;
+
   // Turn 'store float 1.0, Ptr' -> 'store int 0x12345678, Ptr'
   if (ConstantFPSDNode *CFP = dyn_cast<ConstantFPSDNode>(Value)) {
     // NOTE: If the original store is volatile, this transform must not increase
@@ -6298,8 +6304,10 @@ SDValue DAGCombiner::visitSTORE(SDNode *N) {
           return DAG.getStore(Chain, N->getDebugLoc(), Tmp,
                               Ptr, ST->getPointerInfo(), ST->isVolatile(),
                               ST->isNonTemporal(), ST->getAlignment());
-        } else if (!ST->isVolatile() &&
-                   TLI.isOperationLegalOrCustom(ISD::STORE, MVT::i32)) {
+        }
+
+        if (!ST->isVolatile() &&
+            TLI.isOperationLegalOrCustom(ISD::STORE, MVT::i32)) {
           // Many FP stores are not made apparent until after legalize, e.g. for
           // argument passing.  Since this is so common, custom legalize the
           // 64-bit integer store into two 32-bit stores.

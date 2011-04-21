@@ -2019,9 +2019,13 @@ bool SelectionDAGBuilder::handleBTSplitSwitchCase(CaseRec& CR,
     APInt Range = ComputeRange(LEnd, RBegin);
     assert((Range - 2ULL).isNonNegative() &&
            "Invalid case distance");
-    double LDensity = (double)LSize.roundToDouble() /
+    // Use volatile double here to avoid excess precision issues on some hosts,
+    // e.g. that use 80-bit X87 registers.
+    volatile double LDensity =
+       (double)LSize.roundToDouble() /
                            (LEnd - First + 1ULL).roundToDouble();
-    double RDensity = (double)RSize.roundToDouble() /
+    volatile double RDensity =
+      (double)RSize.roundToDouble() /
                            (Last - RBegin + 1ULL).roundToDouble();
     double Metric = Range.logBase2()*(LDensity+RDensity);
     // Should always split in some non-trivial place
@@ -4672,9 +4676,22 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::flt_rounds:
     setValue(&I, DAG.getNode(ISD::FLT_ROUNDS_, dl, MVT::i32));
     return 0;
-  case Intrinsic::trap:
-    DAG.setRoot(DAG.getNode(ISD::TRAP, dl,MVT::Other, getRoot()));
+  case Intrinsic::trap: {
+    StringRef TrapFuncName = getTrapFunctionName();
+    if (TrapFuncName.empty()) {
+      DAG.setRoot(DAG.getNode(ISD::TRAP, dl,MVT::Other, getRoot()));
+      return 0;
+    }
+    TargetLowering::ArgListTy Args;
+    std::pair<SDValue, SDValue> Result =
+      TLI.LowerCallTo(getRoot(), I.getType(),
+                 false, false, false, false, 0, CallingConv::C,
+                 /*isTailCall=*/false, /*isReturnValueUsed=*/true,
+                 DAG.getExternalSymbol(TrapFuncName.data(), TLI.getPointerTy()),
+                 Args, DAG, getCurDebugLoc());
+    DAG.setRoot(Result.second);
     return 0;
+  }
   case Intrinsic::uadd_with_overflow:
     return implVisitAluOverflow(I, ISD::UADDO);
   case Intrinsic::sadd_with_overflow:
@@ -6180,7 +6197,7 @@ TargetLowering::LowerCallTo(SDValue Chain, const Type *RetTy,
 
   // For a function returning void, there is no return value. We can't create
   // such a node, so we just return a null return value in that case. In
-  // that case, nothing will actualy look at the value.
+  // that case, nothing will actually look at the value.
   if (ReturnValues.empty())
     return std::make_pair(SDValue(), Chain);
 
@@ -6396,7 +6413,7 @@ void SelectionDAGISel::LowerArguments(const BasicBlock *LLVMBB) {
       SDB->setValue(I, Res);
 
       // If this argument is live outside of the entry block, insert a copy from
-      // whereever we got it to the vreg that other BB's will reference it as.
+      // wherever we got it to the vreg that other BB's will reference it as.
       SDB->CopyToExportRegsIfNeeded(I);
     }
   }

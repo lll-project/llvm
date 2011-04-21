@@ -183,6 +183,8 @@ namespace llvm {
     /// function.
     void EmitFunctionBody();
 
+    void emitPrologLabel(const MachineInstr &MI);
+
     /// EmitConstantPool - Print to the current output stream assembly
     /// representations of the constants in the constant pool MCP. This is
     /// used to print out constants which have been "spilled to memory" by
@@ -389,6 +391,7 @@ namespace llvm {
     /// frame.
     void EmitFrameMoves(const std::vector<MachineMove> &Moves,
                         MCSymbol *BaseLabel, bool isEH) const;
+    void EmitCFIFrameMove(const MachineMove &Move) const;
     void EmitCFIFrameMoves(const std::vector<MachineMove> &Moves) const;
 
     //===------------------------------------------------------------------===//
