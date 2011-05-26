@@ -235,6 +235,7 @@ enum dwarf_constants {
   DW_AT_APPLE_property_getter = 0x3fe9,
   DW_AT_APPLE_property_setter = 0x3fea,
   DW_AT_APPLE_property_attribute = 0x3feb,
+  DW_AT_APPLE_objc_complete_type = 0x3fec,
 
   // Attribute form encodings
   DW_FORM_addr = 0x01,
@@ -411,6 +412,7 @@ enum dwarf_constants {
   DW_OP_call_ref = 0x9a,
   DW_OP_form_tls_address = 0x9b,
   DW_OP_call_frame_cfa = 0x9c,
+  DW_OP_bit_piece = 0x9d,
   DW_OP_lo_user = 0xe0,
   DW_OP_hi_user = 0xff,
 

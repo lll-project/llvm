@@ -44,7 +44,9 @@ def t2_so_imm_neg_XFORM : SDNodeXForm<imm, [{
 // t2_so_imm - Match a 32-bit immediate operand, which is an
 // 8-bit immediate rotated by an arbitrary number of bits, or an 8-bit
 // immediate splatted into multiple bytes of the word.
-def t2_so_imm : Operand<i32>, PatLeaf<(imm), [{ return Pred_t2_so_imm(N); }]> {
+def t2_so_imm : Operand<i32>, ImmLeaf<i32, [{
+    return ARM_AM::getT2SOImmVal(Imm) != -1;
+  }]> {
   let EncoderMethod = "getT2SOImmOpValue";
 }
 
@@ -62,14 +64,14 @@ def t2_so_imm_neg : Operand<i32>,
 }], t2_so_imm_neg_XFORM>;
 
 /// imm1_31 predicate - True if the 32-bit immediate is in the range [1,31].
-def imm1_31 : PatLeaf<(i32 imm), [{
-  return (int32_t)N->getZExtValue() >= 1 && (int32_t)N->getZExtValue() < 32;
+def imm1_31 : ImmLeaf<i32, [{
+  return (int32_t)Imm >= 1 && (int32_t)Imm < 32;
 }]>;
 
 /// imm0_4095 predicate - True if the 32-bit immediate is in the range [0.4095].
 def imm0_4095 : Operand<i32>,
-                PatLeaf<(i32 imm), [{
-  return (uint32_t)N->getZExtValue() < 4096;
+                ImmLeaf<i32, [{
+  return Imm >= 0 && Imm < 4096;
 }]>;
 
 def imm0_4095_neg : PatLeaf<(i32 imm), [{
@@ -83,6 +85,11 @@ def imm0_255_neg : PatLeaf<(i32 imm), [{
 def imm0_255_not : PatLeaf<(i32 imm), [{
   return (uint32_t)(~N->getZExtValue()) < 255;
 }], imm_comp_XFORM>;
+
+def lo5AllOne : PatLeaf<(i32 imm), [{
+  // Returns true if all low 5-bits are 1.
+  return (((uint32_t)N->getZExtValue()) & 0x1FUL) == 0x1FUL;
+}]>;
 
 // Define Thumb2 specific addressing modes.
 
@@ -151,7 +158,7 @@ def t2addrmode_so_reg : Operand<i32>,
 //
 def t2addrmode_reg : Operand<i32> {
   let PrintMethod = "printAddrMode7Operand";
-  let MIOperandInfo = (ops tGPR);
+  let MIOperandInfo = (ops GPR);
   let ParserMatchClass = MemMode7AsmOperand;
 }
 
@@ -681,49 +688,27 @@ multiclass T2I_adde_sube_irs<bits<4> opcod, string opc, PatFrag opnode,
      let Inst{24-21} = opcod;
    }
 }
+}
 
 // Carry setting variants
-let isCodeGenOnly = 1, Defs = [CPSR] in {
-multiclass T2I_adde_sube_s_irs<bits<4> opcod, string opc, PatFrag opnode,
-                               bit Commutable = 0> {
+// NOTE: CPSR def omitted because it will be handled by the custom inserter.
+let usesCustomInserter = 1 in {
+multiclass T2I_adde_sube_s_irs<PatFrag opnode, bit Commutable = 0> {
    // shifted imm
-   def ri : T2sTwoRegImm<
-                 (outs rGPR:$Rd), (ins rGPR:$Rn, t2_so_imm:$imm), IIC_iALUi,
-                 opc, "\t$Rd, $Rn, $imm",
-                 [(set rGPR:$Rd, (opnode rGPR:$Rn, t2_so_imm:$imm))]>,
-                 Requires<[IsThumb2]> {
-     let Inst{31-27} = 0b11110;
-     let Inst{25} = 0;
-     let Inst{24-21} = opcod;
-     let Inst{20} = 1; // The S bit.
-     let Inst{15} = 0;
-   }
+   def ri : t2PseudoInst<(outs rGPR:$Rd), (ins rGPR:$Rn, t2_so_imm:$imm),
+                Size4Bytes, IIC_iALUi,
+                [(set rGPR:$Rd, (opnode rGPR:$Rn, t2_so_imm:$imm))]>;
    // register
-   def rr : T2sThreeReg<(outs rGPR:$Rd), (ins rGPR:$Rn, rGPR:$Rm), IIC_iALUr,
-                 opc, ".w\t$Rd, $Rn, $Rm",
-                 [(set rGPR:$Rd, (opnode rGPR:$Rn, rGPR:$Rm))]>,
-                 Requires<[IsThumb2]> {
+   def rr : t2PseudoInst<(outs rGPR:$Rd), (ins rGPR:$Rn, rGPR:$Rm),
+                Size4Bytes, IIC_iALUr,
+                [(set rGPR:$Rd, (opnode rGPR:$Rn, rGPR:$Rm))]> {
      let isCommutable = Commutable;
-     let Inst{31-27} = 0b11101;
-     let Inst{26-25} = 0b01;
-     let Inst{24-21} = opcod;
-     let Inst{20} = 1; // The S bit.
-     let Inst{14-12} = 0b000; // imm3
-     let Inst{7-6} = 0b00; // imm2
-     let Inst{5-4} = 0b00; // type
    }
    // shifted register
-   def rs : T2sTwoRegShiftedReg<
-                 (outs rGPR:$Rd), (ins rGPR:$Rn, t2_so_reg:$ShiftedRm),
-                 IIC_iALUsi, opc, ".w\t$Rd, $Rn, $ShiftedRm",
-                 [(set rGPR:$Rd, (opnode rGPR:$Rn, t2_so_reg:$ShiftedRm))]>,
-                 Requires<[IsThumb2]> {
-     let Inst{31-27} = 0b11101;
-     let Inst{26-25} = 0b01;
-     let Inst{24-21} = opcod;
-     let Inst{20} = 1; // The S bit.
-   }
-}
+   def rs : t2PseudoInst<
+                (outs rGPR:$Rd), (ins rGPR:$Rn, t2_so_reg:$ShiftedRm),
+                Size4Bytes, IIC_iALUsi,
+                [(set rGPR:$Rd, (opnode rGPR:$Rn, t2_so_reg:$ShiftedRm))]>;
 }
 }
 
@@ -1803,10 +1788,8 @@ defm t2ADC  : T2I_adde_sube_irs<0b1010, "adc",
                           BinOpFrag<(adde_dead_carry node:$LHS, node:$RHS)>, 1>;
 defm t2SBC  : T2I_adde_sube_irs<0b1011, "sbc",
                           BinOpFrag<(sube_dead_carry node:$LHS, node:$RHS)>>;
-defm t2ADCS : T2I_adde_sube_s_irs<0b1010, "adc",
-                          BinOpFrag<(adde_live_carry node:$LHS, node:$RHS)>, 1>;
-defm t2SBCS : T2I_adde_sube_s_irs<0b1011, "sbc",
-                          BinOpFrag<(sube_live_carry node:$LHS, node:$RHS)>>;
+defm t2ADCS : T2I_adde_sube_s_irs<BinOpFrag<(adde_live_carry node:$LHS, node:$RHS)>, 1>;
+defm t2SBCS : T2I_adde_sube_s_irs<BinOpFrag<(sube_live_carry node:$LHS, node:$RHS)>>;
 
 // RSB
 defm t2RSB  : T2I_rbin_irs  <0b1110, "rsb",
@@ -1837,9 +1820,14 @@ def : T2Pat<(addc       rGPR:$src, t2_so_imm_neg:$imm),
 // Effectively, the inverse interpretation of the carry flag already accounts
 // for part of the negation.
 let AddedComplexity = 1 in
-def : T2Pat<(adde       rGPR:$src, imm0_255_not:$imm),
+def : T2Pat<(adde_dead_carry       rGPR:$src, imm0_255_not:$imm),
+            (t2SBCri    rGPR:$src, imm0_255_not:$imm)>;
+def : T2Pat<(adde_dead_carry       rGPR:$src, t2_so_imm_not:$imm),
+            (t2SBCri    rGPR:$src, t2_so_imm_not:$imm)>;
+let AddedComplexity = 1 in
+def : T2Pat<(adde_live_carry       rGPR:$src, imm0_255_not:$imm),
             (t2SBCSri   rGPR:$src, imm0_255_not:$imm)>;
-def : T2Pat<(adde       rGPR:$src, t2_so_imm_not:$imm),
+def : T2Pat<(adde_live_carry       rGPR:$src, t2_so_imm_not:$imm),
             (t2SBCSri   rGPR:$src, t2_so_imm_not:$imm)>;
 
 // Select Bytes -- for disassembly only
@@ -2041,6 +2029,10 @@ defm t2LSL  : T2I_sh_ir<0b00, "lsl", BinOpFrag<(shl  node:$LHS, node:$RHS)>>;
 defm t2LSR  : T2I_sh_ir<0b01, "lsr", BinOpFrag<(srl  node:$LHS, node:$RHS)>>;
 defm t2ASR  : T2I_sh_ir<0b10, "asr", BinOpFrag<(sra  node:$LHS, node:$RHS)>>;
 defm t2ROR  : T2I_sh_ir<0b11, "ror", BinOpFrag<(rotr node:$LHS, node:$RHS)>>;
+
+// (rotr x, (and y, 0x...1f)) ==> (ROR x, y)
+def : Pat<(rotr rGPR:$lhs, (and rGPR:$rhs, lo5AllOne)),
+          (t2RORrr rGPR:$lhs, rGPR:$rhs)>;
 
 let Uses = [CPSR] in {
 def t2RRX : T2sTwoReg<(outs rGPR:$Rd), (ins rGPR:$Rm), IIC_iMOVsi,
@@ -2973,10 +2965,9 @@ let isCall = 1,
 //   all of the callee-saved resgisters, which is exactly what we want.
 //   $val is a scratch register for our use.
 let Defs =
-  [ R0,  R1,  R2,  R3,  R4,  R5,  R6,  R7,  R8,  R9,  R10, R11, R12, LR,  D0,
-    D1,  D2,  D3,  D4,  D5,  D6,  D7,  D8,  D9,  D10, D11, D12, D13, D14, D15,
-    D16, D17, D18, D19, D20, D21, D22, D23, D24, D25, D26, D27, D28, D29, D30,
-    D31 ], hasSideEffects = 1, isBarrier = 1, isCodeGenOnly = 1 in {
+  [ R0,  R1,  R2,  R3,  R4,  R5,  R6,  R7,  R8,  R9,  R10, R11, R12, LR,
+    QQQQ0, QQQQ1, QQQQ2, QQQQ3 ],
+  hasSideEffects = 1, isBarrier = 1, isCodeGenOnly = 1 in {
   def t2Int_eh_sjlj_setjmp : Thumb2XI<(outs), (ins tGPR:$src, tGPR:$val),
                                AddrModeNone, SizeSpecial, NoItinerary, "", "",
                           [(set R0, (ARMeh_sjlj_setjmp tGPR:$src, tGPR:$val))]>,
@@ -3355,9 +3346,10 @@ def t2MSR : T2SpecialReg<0b111100111000 /* op31-20 */, 0b10 /* op15-14 */,
 // Move between coprocessor and ARM core register -- for disassembly only
 //
 
-class t2MovRCopro<string opc, bit direction, dag oops, dag iops>
+class t2MovRCopro<string opc, bit direction, dag oops, dag iops,
+                  list<dag> pattern>
   : T2Cop<oops, iops, !strconcat(opc, "\t$cop, $opc1, $Rt, $CRn, $CRm, $opc2"),
-          [/* For disassembly only; pattern left blank */]> {
+          pattern> {
   let Inst{27-24} = 0b1110;
   let Inst{20} = direction;
   let Inst{4} = 1;
@@ -3379,15 +3371,21 @@ class t2MovRCopro<string opc, bit direction, dag oops, dag iops>
 
 def t2MCR2 : t2MovRCopro<"mcr2", 0 /* from ARM core register to coprocessor */,
              (outs), (ins p_imm:$cop, i32imm:$opc1, GPR:$Rt, c_imm:$CRn,
-                          c_imm:$CRm, i32imm:$opc2)>;
+                          c_imm:$CRm, i32imm:$opc2),
+             [(int_arm_mcr2 imm:$cop, imm:$opc1, GPR:$Rt, imm:$CRn,
+                            imm:$CRm, imm:$opc2)]>;
 def t2MRC2 : t2MovRCopro<"mrc2", 1 /* from coprocessor to ARM core register */,
              (outs GPR:$Rt), (ins p_imm:$cop, i32imm:$opc1, c_imm:$CRn,
-                                  c_imm:$CRm, i32imm:$opc2)>;
+                                  c_imm:$CRm, i32imm:$opc2), []>;
 
-class t2MovRRCopro<string opc, bit direction>
+def : T2v6Pat<(int_arm_mrc2 imm:$cop, imm:$opc1, imm:$CRn,
+                            imm:$CRm, imm:$opc2),
+              (t2MRC2 imm:$cop, imm:$opc1, imm:$CRn, imm:$CRm, imm:$opc2)>;
+
+class t2MovRRCopro<string opc, bit direction,
+                   list<dag> pattern = [/* For disassembly only */]>
   : T2Cop<(outs), (ins p_imm:$cop, i32imm:$opc1, GPR:$Rt, GPR:$Rt2, c_imm:$CRm),
-          !strconcat(opc, "\t$cop, $opc1, $Rt, $Rt2, $CRm"),
-          [/* For disassembly only; pattern left blank */]> {
+          !strconcat(opc, "\t$cop, $opc1, $Rt, $Rt2, $CRm"), pattern> {
   let Inst{27-24} = 0b1100;
   let Inst{23-21} = 0b010;
   let Inst{20} = direction;
@@ -3406,7 +3404,9 @@ class t2MovRRCopro<string opc, bit direction>
 }
 
 def t2MCRR2 : t2MovRRCopro<"mcrr2",
-                           0 /* from ARM core register to coprocessor */>;
+                           0 /* from ARM core register to coprocessor */,
+                           [(int_arm_mcrr2 imm:$cop, imm:$opc1, GPR:$Rt,
+                                           GPR:$Rt2, imm:$CRm)]>;
 def t2MRRC2 : t2MovRRCopro<"mrrc2",
                            1 /* from coprocessor to ARM core register */>;
 
@@ -3417,7 +3417,8 @@ def t2MRRC2 : t2MovRRCopro<"mrrc2",
 def t2CDP2 : T2Cop<(outs), (ins p_imm:$cop, i32imm:$opc1,
                    c_imm:$CRd, c_imm:$CRn, c_imm:$CRm, i32imm:$opc2),
                    "cdp2\t$cop, $opc1, $CRd, $CRn, $CRm, $opc2",
-                   [/* For disassembly only; pattern left blank */]> {
+                   [(int_arm_cdp2 imm:$cop, imm:$opc1, imm:$CRd, imm:$CRn,
+                                  imm:$CRm, imm:$opc2)]> {
   let Inst{27-24} = 0b1110;
 
   bits<4> opc1;

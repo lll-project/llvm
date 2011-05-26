@@ -73,7 +73,8 @@ static void ChangeToUnreachable(Instruction *I, bool UseLLVMTrap) {
   if (UseLLVMTrap) {
     Function *TrapFn =
       Intrinsic::getDeclaration(BB->getParent()->getParent(), Intrinsic::trap);
-    CallInst::Create(TrapFn, "", I);
+    CallInst *CallTrap = CallInst::Create(TrapFn, "", I);
+    CallTrap->setDebugLoc(I->getDebugLoc());
   }
   new UnreachableInst(I->getContext(), I);
   
@@ -162,7 +163,7 @@ static bool MarkAliveBlocks(BasicBlock *BB,
         Changed = true;
       }
 
-    Changed |= ConstantFoldTerminator(BB);
+    Changed |= ConstantFoldTerminator(BB, true);
     for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
       Worklist.push_back(*SI);
   } while (!Worklist.empty());

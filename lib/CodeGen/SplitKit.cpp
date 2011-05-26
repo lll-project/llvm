@@ -30,6 +30,9 @@ using namespace llvm;
 
 STATISTIC(NumFinished, "Number of splits finished");
 STATISTIC(NumSimple,   "Number of splits that were simple");
+STATISTIC(NumCopies,   "Number of copies inserted for splitting");
+STATISTIC(NumRemats,   "Number of rematerialized defs for splitting");
+STATISTIC(NumRepairs,  "Number of invalid live ranges repaired");
 
 //===----------------------------------------------------------------------===//
 //                                 Split Analysis
@@ -51,6 +54,7 @@ void SplitAnalysis::clear() {
   UseBlocks.clear();
   ThroughBlocks.clear();
   CurLI = 0;
+  DidRepairRange = false;
 }
 
 SlotIndex SplitAnalysis::computeLastSplitPoint(unsigned Num) {
@@ -119,6 +123,8 @@ void SplitAnalysis::analyzeUses() {
   if (!calcLiveBlockInfo()) {
     // FIXME: calcLiveBlockInfo found inconsistencies in the live range.
     // I am looking at you, SimpleRegisterCoalescing!
+    DidRepairRange = true;
+    ++NumRepairs;
     DEBUG(dbgs() << "*** Fixing inconsistent live interval! ***\n");
     const_cast<LiveIntervals&>(LIS)
       .shrinkToUses(const_cast<LiveInterval*>(CurLI));
@@ -219,6 +225,29 @@ bool SplitAnalysis::calcLiveBlockInfo() {
       MFI = LIS.getMBBFromIndex(LVI->start);
   }
   return true;
+}
+
+unsigned SplitAnalysis::countLiveBlocks(const LiveInterval *cli) const {
+  if (cli->empty())
+    return 0;
+  LiveInterval *li = const_cast<LiveInterval*>(cli);
+  LiveInterval::iterator LVI = li->begin();
+  LiveInterval::iterator LVE = li->end();
+  unsigned Count = 0;
+
+  // Loop over basic blocks where li is live.
+  MachineFunction::const_iterator MFI = LIS.getMBBFromIndex(LVI->start);
+  SlotIndex Stop = LIS.getMBBEndIdx(MFI);
+  for (;;) {
+    ++Count;
+    LVI = li->advanceTo(LVI, Stop);
+    if (LVI == LVE)
+      return Count;
+    do {
+      ++MFI;
+      Stop = LIS.getMBBEndIdx(MFI);
+    } while (Stop <= LVI->start);
+  }
 }
 
 bool SplitAnalysis::isOriginalEndpoint(SlotIndex Idx) const {
@@ -556,15 +585,22 @@ VNInfo *SplitEditor::defFromParent(unsigned RegIdx,
   SlotIndex Def;
   LiveInterval *LI = Edit->get(RegIdx);
 
+  // We may be trying to avoid interference that ends at a deleted instruction,
+  // so always begin RegIdx 0 early and all others late.
+  bool Late = RegIdx != 0;
+
   // Attempt cheap-as-a-copy rematerialization.
   LiveRangeEdit::Remat RM(ParentVNI);
   if (Edit->canRematerializeAt(RM, UseIdx, true, LIS)) {
-    Def = Edit->rematerializeAt(MBB, I, LI->reg, RM, LIS, TII, TRI);
+    Def = Edit->rematerializeAt(MBB, I, LI->reg, RM, LIS, TII, TRI, Late);
+    ++NumRemats;
   } else {
     // Can't remat, just insert a copy from parent.
     CopyMI = BuildMI(MBB, I, DebugLoc(), TII.get(TargetOpcode::COPY), LI->reg)
                .addReg(Edit->getReg());
-    Def = LIS.InsertMachineInstrInMaps(CopyMI).getDefIndex();
+    Def = LIS.getSlotIndexes()->insertMachineInstrInMaps(CopyMI, Late)
+            .getDefIndex();
+    ++NumCopies;
   }
 
   // Define the value in Reg.
@@ -935,7 +971,7 @@ void SplitEditor::deleteRematVictims() {
   Edit->eliminateDeadDefs(Dead, LIS, VRM, TII);
 }
 
-void SplitEditor::finish() {
+void SplitEditor::finish(SmallVectorImpl<unsigned> *LRMap) {
   ++NumFinished;
 
   // At this point, the live intervals in Edit contain VNInfos corresponding to
@@ -983,6 +1019,13 @@ void SplitEditor::finish() {
   for (LiveRangeEdit::iterator I = Edit->begin(), E = Edit->end(); I != E; ++I)
     (*I)->RenumberValues(LIS);
 
+  // Provide a reverse mapping from original indices to Edit ranges.
+  if (LRMap) {
+    LRMap->clear();
+    for (unsigned i = 0, e = Edit->size(); i != e; ++i)
+      LRMap->push_back(i);
+  }
+
   // Now check if any registers were separated into multiple components.
   ConnectedVNInfoEqClasses ConEQ(LIS);
   for (unsigned i = 0, e = Edit->size(); i != e; ++i) {
@@ -994,13 +1037,18 @@ void SplitEditor::finish() {
     DEBUG(dbgs() << "  " << NumComp << " components: " << *li << '\n');
     SmallVector<LiveInterval*, 8> dups;
     dups.push_back(li);
-    for (unsigned i = 1; i != NumComp; ++i)
+    for (unsigned j = 1; j != NumComp; ++j)
       dups.push_back(&Edit->create(LIS, VRM));
     ConEQ.Distribute(&dups[0], MRI);
+    // The new intervals all map back to i.
+    if (LRMap)
+      LRMap->resize(Edit->size(), i);
   }
 
   // Calculate spill weight and allocation hints for new intervals.
   Edit->calculateRegClassAndHint(VRM.getMachineFunction(), LIS, SA.Loops);
+
+  assert(!LRMap || LRMap->size() == Edit->size());
 }
 
 

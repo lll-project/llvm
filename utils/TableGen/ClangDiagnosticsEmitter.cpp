@@ -19,7 +19,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/VectorExtras.h"
-#include <set>
 #include <map>
 #include <algorithm>
 #include <functional>
@@ -163,7 +162,7 @@ void ClangDiagsDefsEmitter::run(raw_ostream &OS) {
       OS << ", \"";
       OS.write_escaped(DI->getDef()->getValueAsString("GroupName")) << '"';
     } else {
-      OS << ", 0";
+      OS << ", \"\"";
     }
 
     // SFINAE bit
@@ -276,7 +275,9 @@ void ClangDiagGroupsEmitter::run(raw_ostream &OS) {
   for (std::map<std::string, GroupInfo>::iterator
        I = DiagsInGroup.begin(), E = DiagsInGroup.end(); I != E; ++I) {
     // Group option string.
-    OS << "  { \"";
+    OS << "  { ";
+    OS << I->first.size() << ", ";
+    OS << "\"";
     OS.write_escaped(I->first) << "\","
                                << std::string(MaxLen-I->first.size()+1, ' ');
     

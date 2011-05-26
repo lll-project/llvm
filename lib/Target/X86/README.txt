@@ -1728,26 +1728,6 @@ are functionally identical.
 //===---------------------------------------------------------------------===//
 
 Take the following C code:
-int x(int y) { return (y & 63) << 14; }
-
-Code produced by gcc:
-	andl	$63, %edi
-	sall	$14, %edi
-	movl	%edi, %eax
-	ret
-
-Code produced by clang:
-	shll	$14, %edi
-	movl	%edi, %eax
-	andl	$1032192, %eax
-	ret
-
-The code produced by gcc is 3 bytes shorter.  This sort of construct often
-shows up with bitfields.
-
-//===---------------------------------------------------------------------===//
-
-Take the following C code:
 int f(int a, int b) { return (unsigned char)a == (unsigned char)b; }
 
 We generate the following IR with clang:
@@ -2032,3 +2012,57 @@ clamp_float:                            # @clamp_float
 with -ffast-math.
 
 //===---------------------------------------------------------------------===//
+
+This function (from PR9803):
+
+int clamp2(int a) {
+        if (a > 5)
+                a = 5;
+        if (a < 0) 
+                return 0;
+        return a;
+}
+
+Compiles to:
+
+_clamp2:                                ## @clamp2
+        pushq   %rbp
+        movq    %rsp, %rbp
+        cmpl    $5, %edi
+        movl    $5, %ecx
+        cmovlel %edi, %ecx
+        testl   %ecx, %ecx
+        movl    $0, %eax
+        cmovnsl %ecx, %eax
+        popq    %rbp
+        ret
+
+The move of 0 could be scheduled above the test to make it is xor reg,reg.
+
+//===---------------------------------------------------------------------===//
+
+GCC PR48986.  We currently compile this:
+
+void bar(void);
+void yyy(int* p) {
+    if (__sync_fetch_and_add(p, -1) == 1)
+      bar();
+}
+
+into:
+	movl	$-1, %eax
+	lock
+	xaddl	%eax, (%rdi)
+	cmpl	$1, %eax
+	je	LBB0_2
+
+Instead we could generate:
+
+	lock
+	dec %rdi
+	je LBB0_2
+
+The trick is to match "fetch_and_add(X, -C) == C".
+
+//===---------------------------------------------------------------------===//
+

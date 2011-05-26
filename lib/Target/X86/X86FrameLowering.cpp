@@ -355,7 +355,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF) const {
   MachineModuleInfo &MMI = MF.getMMI();
   X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
   bool needsFrameMoves = MMI.hasDebugInfo() ||
-                          !Fn->doesNotThrow() || UnwindTablesMandatory;
+    Fn->needsUnwindTableEntry();
   uint64_t MaxAlign  = MFI->getMaxAlignment(); // Desired stack alignment.
   uint64_t StackSize = MFI->getStackSize();    // Number of bytes to allocate.
   bool HasFP = hasFP(MF);
@@ -477,15 +477,6 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF) const {
         .addReg(StackPtr);
 
     if (needsFrameMoves) {
-      const MCAsmInfo &MAI = MMI.getContext().getAsmInfo();
-      if (MAI.getExceptionHandlingType() == ExceptionHandling::DwarfCFI) {
-        MCSymbol *FrameLabel0 = MMI.getContext().CreateTempSymbol();
-        BuildMI(MBB, MBBI, DL, TII.get(X86::PROLOG_LABEL)).addSym(FrameLabel0);
-        MachineLocation FPSrc0(FramePtr);
-        MachineLocation FPDst0(FramePtr, -2 * stackGrowth);
-        Moves.push_back(MachineMove(FrameLabel0, FPDst0, FPSrc0));
-      }
-
       // Mark effective beginning of when frame pointer becomes valid.
       MCSymbol *FrameLabel = MMI.getContext().CreateTempSymbol();
       BuildMI(MBB, MBBI, DL, TII.get(X86::PROLOG_LABEL)).addSym(FrameLabel);

@@ -596,6 +596,8 @@ TargetLowering::TargetLowering(const TargetMachine &tm,
   SchedPreferenceInfo = Sched::Latency;
   JumpBufSize = 0;
   JumpBufAlignment = 0;
+  MinFunctionAlignment = 0;
+  PrefFunctionAlignment = 0;
   PrefLoopAlignment = 0;
   MinStackArgumentAlignment = 1;
   ShouldFoldAtomicFences = false;
@@ -1726,19 +1728,20 @@ bool TargetLowering::SimplifyDemandedBits(SDValue Op,
 #if 0
     // If this is an FP->Int bitcast and if the sign bit is the only thing that
     // is demanded, turn this into a FGETSIGN.
-    if (NewMask == EVT::getIntegerVTSignBit(Op.getValueType()) &&
-        MVT::isFloatingPoint(Op.getOperand(0).getValueType()) &&
-        !MVT::isVector(Op.getOperand(0).getValueType())) {
+    if (NewMask == APInt::getSignBit(Op.getValueType().getSizeInBits()) &&
+        Op.getOperand(0).getValueType().isFloatingPoint() &&
+        !Op.getOperand(0).getValueType().isVector()) {
       // Only do this xform if FGETSIGN is valid or if before legalize.
-      if (!TLO.AfterLegalize ||
+      if (TLO.isBeforeLegalize() ||
           isOperationLegal(ISD::FGETSIGN, Op.getValueType())) {
         // Make a FGETSIGN + SHL to move the sign bit into the appropriate
         // place.  We expect the SHL to be eliminated by other optimizations.
-        SDValue Sign = TLO.DAG.getNode(ISD::FGETSIGN, Op.getValueType(),
+        SDValue Sign = TLO.DAG.getNode(ISD::FGETSIGN, dl, Op.getValueType(),
                                          Op.getOperand(0));
         unsigned ShVal = Op.getValueType().getSizeInBits()-1;
         SDValue ShAmt = TLO.DAG.getConstant(ShVal, getShiftAmountTy());
-        return TLO.CombineTo(Op, TLO.DAG.getNode(ISD::SHL, Op.getValueType(),
+        return TLO.CombineTo(Op, TLO.DAG.getNode(ISD::SHL, dl,
+                                                 Op.getValueType(),
                                                  Sign, ShAmt));
       }
     }
@@ -1914,6 +1917,42 @@ TargetLowering::SimplifySetCC(EVT VT, SDValue N0, SDValue N1,
       }
 
       // TODO: (ctpop x) == 1 -> x && (x & x-1) == 0 iff ctpop is illegal.
+    }
+
+    // (zext x) == C --> x == (trunc C)
+    if (DCI.isBeforeLegalize() && N0->hasOneUse() &&
+        (Cond == ISD::SETEQ || Cond == ISD::SETNE)) {
+      unsigned MinBits = N0.getValueSizeInBits();
+      SDValue PreZExt;
+      if (N0->getOpcode() == ISD::ZERO_EXTEND) {
+        // ZExt
+        MinBits = N0->getOperand(0).getValueSizeInBits();
+        PreZExt = N0->getOperand(0);
+      } else if (N0->getOpcode() == ISD::AND) {
+        // DAGCombine turns costly ZExts into ANDs
+        if (ConstantSDNode *C = dyn_cast<ConstantSDNode>(N0->getOperand(1)))
+          if ((C->getAPIntValue()+1).isPowerOf2()) {
+            MinBits = C->getAPIntValue().countTrailingOnes();
+            PreZExt = N0->getOperand(0);
+          }
+      } else if (LoadSDNode *LN0 = dyn_cast<LoadSDNode>(N0)) {
+        // ZEXTLOAD
+        if (LN0->getExtensionType() == ISD::ZEXTLOAD) {
+          MinBits = LN0->getMemoryVT().getSizeInBits();
+          PreZExt = N0;
+        }
+      }
+
+      // Make sure we're not loosing bits from the constant.
+      if (MinBits < C1.getBitWidth() && MinBits > C1.getActiveBits()) {
+        EVT MinVT = EVT::getIntegerVT(*DAG.getContext(), MinBits);
+        if (isTypeDesirableForOp(ISD::SETCC, MinVT)) {
+          // Will get folded away.
+          SDValue Trunc = DAG.getNode(ISD::TRUNCATE, dl, MinVT, PreZExt);
+          SDValue C = DAG.getConstant(C1.trunc(MinBits), MinVT);
+          return DAG.getSetCC(dl, VT, Trunc, C, Cond);
+        }
+      }
     }
 
     // If the LHS is '(and load, const)', the RHS is 0,
@@ -2774,6 +2813,12 @@ TargetLowering::AsmOperandInfoVector TargetLowering::ParseConstraints(
           report_fatal_error("Indirect operand for inline asm not a pointer!");
         OpTy = PtrTy->getElementType();
       }
+      
+      // Look for vector wrapped in a struct. e.g. { <16 x i8> }.
+      if (const StructType *STy = dyn_cast<StructType>(OpTy))
+        if (STy->getNumElements() == 1)
+          OpTy = STy->getElementType(0);
+
       // If OpTy is not a single value, it may be a struct/union that we
       // can tile with integers.
       if (!OpTy->isSingleValueType() && OpTy->isSized()) {

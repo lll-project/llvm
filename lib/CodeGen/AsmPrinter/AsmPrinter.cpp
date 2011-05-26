@@ -38,6 +38,7 @@
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/ADT/SmallString.h"
@@ -188,21 +189,19 @@ bool AsmPrinter::doInitialization(Module &M) {
   if (MAI->doesSupportDebugInformation())
     DD = new DwarfDebug(this, &M);
 
-  if (MAI->doesSupportExceptionHandling())
-    switch (MAI->getExceptionHandlingType()) {
-    default:
-    case ExceptionHandling::DwarfTable:
-      DE = new DwarfTableException(this);
-      break;
-    case ExceptionHandling::DwarfCFI:
-      DE = new DwarfCFIException(this);
-      break;
-    case ExceptionHandling::ARM:
-      DE = new ARMException(this);
-      break;
-    }
+  switch (MAI->getExceptionHandlingType()) {
+  case ExceptionHandling::None:
+    return false;
+  case ExceptionHandling::SjLj:
+  case ExceptionHandling::DwarfCFI:
+    DE = new DwarfCFIException(this);
+    return false;
+  case ExceptionHandling::ARM:
+    DE = new ARMException(this);
+    return false;
+  }
 
-  return false;
+  llvm_unreachable("Unknown exception type.");
 }
 
 void AsmPrinter::EmitLinkage(unsigned Linkage, MCSymbol *GVSym) const {
@@ -288,12 +287,6 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   // Handle common and BSS local symbols (.lcomm).
   if (GVKind.isCommon() || GVKind.isBSSLocal()) {
     if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
-
-    if (isVerbose()) {
-      WriteAsOperand(OutStreamer.GetCommentOS(), GV,
-                     /*PrintType=*/false, GV->getParent());
-      OutStreamer.GetCommentOS() << '\n';
-    }
 
     // Handle common symbols.
     if (GVKind.isCommon()) {
@@ -597,26 +590,38 @@ static bool EmitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
   return true;
 }
 
+AsmPrinter::CFIMoveType AsmPrinter::needsCFIMoves() {
+  if (MAI->getExceptionHandlingType() == ExceptionHandling::DwarfCFI &&
+      MF->getFunction()->needsUnwindTableEntry())
+    return CFI_M_EH;
+
+  if (MMI->hasDebugInfo())
+    return CFI_M_Debug;
+
+  return CFI_M_None;
+}
+
 void AsmPrinter::emitPrologLabel(const MachineInstr &MI) {
   MCSymbol *Label = MI.getOperand(0).getMCSymbol();
-  if (MAI->getExceptionHandlingType() != ExceptionHandling::DwarfCFI) {
-    OutStreamer.EmitLabel(Label);
-    return;
-  }
 
-  const MachineFunction &MF = *MI.getParent()->getParent();
-  MachineModuleInfo &MMI = MF.getMMI();
+  if (MAI->getExceptionHandlingType() != ExceptionHandling::DwarfCFI)
+    return;
+
+  if (needsCFIMoves() == CFI_M_None)
+    return;
+
+  MachineModuleInfo &MMI = MF->getMMI();
   std::vector<MachineMove> &Moves = MMI.getFrameMoves();
-  const MachineMove *Move = NULL;
+  bool FoundOne = false;
+  (void)FoundOne;
   for (std::vector<MachineMove>::iterator I = Moves.begin(),
          E = Moves.end(); I != E; ++I) {
     if (I->getLabel() == Label) {
-      Move = &*I;
-      break;
+      EmitCFIFrameMove(*I);
+      FoundOne = true;
     }
   }
-  assert(Move);
-  EmitCFIFrameMove(*Move);
+  assert(FoundOne);
 }
 
 /// EmitFunctionBody - This method emits the body and trailer for a
@@ -678,6 +683,9 @@ void AsmPrinter::EmitFunctionBody() {
         if (isVerbose()) EmitKill(II, *this);
         break;
       default:
+        if (!TM.hasMCUseLoc())
+          MCLineEntry::Make(&OutStreamer, getCurrentSection());
+
         EmitInstruction(II);
         break;
       }
@@ -750,6 +758,56 @@ MachineLocation AsmPrinter::
 getDebugValueLocation(const MachineInstr *MI) const {
   // Target specific DBG_VALUE instructions are handled by each target.
   return MachineLocation();
+}
+
+/// getDwarfRegOpSize - get size required to emit given machine location using
+/// dwarf encoding.
+unsigned AsmPrinter::getDwarfRegOpSize(const MachineLocation &MLoc) const {
+  const TargetRegisterInfo *RI = TM.getRegisterInfo();
+  unsigned DWReg = RI->getDwarfRegNum(MLoc.getReg(), false);
+  if (int Offset = MLoc.getOffset()) {
+    // If the value is at a certain offset from frame register then
+    // use DW_OP_breg.
+    if (DWReg < 32)
+      return 1 + MCAsmInfo::getSLEB128Size(Offset);
+    else
+      return 1 + MCAsmInfo::getULEB128Size(MLoc.getReg()) 
+        + MCAsmInfo::getSLEB128Size(Offset);
+  }
+  if (DWReg < 32)
+    return 1;
+
+  return 1 + MCAsmInfo::getULEB128Size(DWReg);
+}
+
+/// EmitDwarfRegOp - Emit dwarf register operation.
+void AsmPrinter::EmitDwarfRegOp(const MachineLocation &MLoc) const {
+  const TargetRegisterInfo *TRI = TM.getRegisterInfo();
+  unsigned Reg = TRI->getDwarfRegNum(MLoc.getReg(), false);
+  if (int Offset =  MLoc.getOffset()) {
+    if (Reg < 32) {
+      OutStreamer.AddComment(
+        dwarf::OperationEncodingString(dwarf::DW_OP_breg0 + Reg));
+      EmitInt8(dwarf::DW_OP_breg0 + Reg);
+    } else {
+      OutStreamer.AddComment("DW_OP_bregx");
+      EmitInt8(dwarf::DW_OP_bregx);
+      OutStreamer.AddComment(Twine(Reg));
+      EmitULEB128(Reg);
+    }
+    EmitSLEB128(Offset);
+  } else {
+    if (Reg < 32) {
+      OutStreamer.AddComment(
+        dwarf::OperationEncodingString(dwarf::DW_OP_reg0 + Reg));
+      EmitInt8(dwarf::DW_OP_reg0 + Reg);
+    } else {
+      OutStreamer.AddComment("DW_OP_regx");
+      EmitInt8(dwarf::DW_OP_regx);
+      OutStreamer.AddComment(Twine(Reg));
+      EmitULEB128(Reg);
+    }
+  }
 }
 
 bool AsmPrinter::doFinalization(Module &M) {

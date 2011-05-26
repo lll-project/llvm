@@ -23,7 +23,6 @@
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <vector>
-#include <set>
 
 namespace llvm {
 
@@ -332,6 +331,14 @@ public:
   /// or PHI node updating; that information is cleared out as it is
   /// consumed.
   void clear();
+
+  /// clearDanglingDebugInfo - Clear the dangling debug information
+  /// map. This function is seperated from the clear so that debug
+  /// information that is dangling in a basic block can be properly
+  /// resolved in a different basic block. This allows the
+  /// SelectionDAG to resolve dangling debug information attached
+  /// to PHI nodes.
+  void clearDanglingDebugInfo();
 
   /// getRoot - Return the current virtual root of the Selection DAG,
   /// flushing any PendingLoad items. This must be done before emitting

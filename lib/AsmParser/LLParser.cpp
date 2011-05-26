@@ -514,7 +514,7 @@ bool LLParser::ParseMDNodeID(MDNode *&Result) {
   if (Result) return false;
 
   // Otherwise, create MDNode forward reference.
-  MDNode *FwdNode = MDNode::getTemporary(Context, 0, 0);
+  MDNode *FwdNode = MDNode::getTemporary(Context, ArrayRef<Value*>());
   ForwardRefMDNodes[MID] = std::make_pair(FwdNode, Lex.getLoc());
   
   if (NumberedMetadata.size() <= MID)
@@ -572,7 +572,7 @@ bool LLParser::ParseStandaloneMetadata() {
       ParseToken(lltok::rbrace, "expected end of metadata node"))
     return true;
 
-  MDNode *Init = MDNode::get(Context, Elts.data(), Elts.size());
+  MDNode *Init = MDNode::get(Context, Elts);
   
   // See if this was forward referenced, if so, handle it.
   std::map<unsigned, std::pair<TrackingVH<MDNode>, LocTy> >::iterator
@@ -972,6 +972,7 @@ bool LLParser::ParseOptionalAttrs(unsigned &Attrs, unsigned AttrKind) {
 
     case lltok::kw_noreturn:        Attrs |= Attribute::NoReturn; break;
     case lltok::kw_nounwind:        Attrs |= Attribute::NoUnwind; break;
+    case lltok::kw_uwtable:         Attrs |= Attribute::UWTable; break;
     case lltok::kw_noinline:        Attrs |= Attribute::NoInline; break;
     case lltok::kw_readnone:        Attrs |= Attribute::ReadNone; break;
     case lltok::kw_readonly:        Attrs |= Attribute::ReadOnly; break;
@@ -2498,7 +2499,7 @@ bool LLParser::ParseMetadataListValue(ValID &ID, PerFunctionState *PFS) {
       ParseToken(lltok::rbrace, "expected end of metadata node"))
     return true;
 
-  ID.MDNodeVal = MDNode::get(Context, Elts.data(), Elts.size());
+  ID.MDNodeVal = MDNode::get(Context, Elts);
   ID.Kind = ValID::t_MDNode;
   return false;
 }
@@ -3003,7 +3004,6 @@ int LLParser::ParseInstruction(Instruction *&Inst, BasicBlock *BB,
   case lltok::kw_sub:
   case lltok::kw_mul:
   case lltok::kw_shl: {
-    LocTy ModifierLoc = Lex.getLoc();
     bool NUW = EatIfPresent(lltok::kw_nuw);
     bool NSW = EatIfPresent(lltok::kw_nsw);
     if (!NUW) NUW = EatIfPresent(lltok::kw_nuw);

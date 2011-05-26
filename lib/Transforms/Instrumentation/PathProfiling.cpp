@@ -63,7 +63,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Instrumentation.h"
-#include <map>
 #include <vector>
 
 #define HASH_THRESHHOLD 100000
@@ -1351,8 +1350,6 @@ bool PathProfiler::runOnModule(Module &M) {
            << " with no main function!\n";
     return false;
   }
-
-  BasicBlock::iterator insertPoint = Main->getEntryBlock().getFirstNonPHI();
 
   llvmIncrementHashFunction = M.getOrInsertFunction(
     "llvm_increment_path_count",

@@ -37,8 +37,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/VectorExtras.h"
-#include <queue>
-#include <set>
 using namespace llvm;
 
 const char *XCoreTargetLowering::
@@ -158,6 +156,8 @@ XCoreTargetLowering::XCoreTargetLowering(XCoreTargetMachine &XTM)
   // We have target-specific dag combine patterns for the following nodes:
   setTargetDAGCombine(ISD::STORE);
   setTargetDAGCombine(ISD::ADD);
+
+  setMinFunctionAlignment(1);
 }
 
 SDValue XCoreTargetLowering::
@@ -203,12 +203,6 @@ void XCoreTargetLowering::ReplaceNodeResults(SDNode *N,
   }
 }
 
-/// getFunctionAlignment - Return the Log2 alignment of this function.
-unsigned XCoreTargetLowering::
-getFunctionAlignment(const Function *) const {
-  return 1;
-}
-
 //===----------------------------------------------------------------------===//
 //  Misc Lower Operation implementation
 //===----------------------------------------------------------------------===//
@@ -250,9 +244,6 @@ LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const
 {
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   SDValue GA = DAG.getTargetGlobalAddress(GV, Op.getDebugLoc(), MVT::i32);
-  // If it's a debug information descriptor, don't mess with it.
-  if (DAG.isVerifiedDebugInfoDesc(Op))
-    return GA;
   return getGlobalAddressWrapper(GA, GV, DAG);
 }
 

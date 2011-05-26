@@ -58,7 +58,8 @@ public:
   virtual void Initialize(MCContext &Ctx, const TargetMachine &TM);
 
   virtual const MCSection *getEHFrameSection() const;
-  virtual MCSymbol *getPersonalityPICSymbol(StringRef Name) const;
+  virtual const MCSection *getWin64EHFuncTableSection() const { return NULL; }
+  virtual const MCSection *getWin64EHTableSection() const { return NULL; }
 
   virtual void emitPersonalityValue(MCStreamer &Streamer,
                                     const TargetMachine &TM,
@@ -86,6 +87,11 @@ public:
   getExprForDwarfGlobalReference(const GlobalValue *GV, Mangler *Mang,
                                  MachineModuleInfo *MMI, unsigned Encoding,
                                  MCStreamer &Streamer) const;
+
+  // getCFIPersonalitySymbol - The symbol that gets passed to .cfi_personality.
+  virtual MCSymbol *
+  getCFIPersonalitySymbol(const GlobalValue *GV, Mangler *Mang,
+                          MachineModuleInfo *MMI) const;
 };
 
 
@@ -129,6 +135,8 @@ public:
   virtual void Initialize(MCContext &Ctx, const TargetMachine &TM);
 
   virtual const MCSection *getEHFrameSection() const;
+  virtual const MCSection *getWin64EHFuncTableSection() const { return NULL; }
+  virtual const MCSection *getWin64EHTableSection() const { return NULL; }
 
   virtual const MCSection *
   SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
@@ -177,9 +185,14 @@ public:
                                  MachineModuleInfo *MMI, unsigned Encoding,
                                  MCStreamer &Streamer) const;
 
+  // getCFIPersonalitySymbol - The symbol that gets passed to .cfi_personality.
+  virtual MCSymbol *
+  getCFIPersonalitySymbol(const GlobalValue *GV, Mangler *Mang,
+                          MachineModuleInfo *MMI) const;
+
   virtual unsigned getPersonalityEncoding() const;
   virtual unsigned getLSDAEncoding() const;
-  virtual unsigned getFDEEncoding() const;
+  virtual unsigned getFDEEncoding(bool CFI) const;
   virtual unsigned getTTypeEncoding() const;
 };
 
@@ -187,6 +200,8 @@ public:
 
 class TargetLoweringObjectFileCOFF : public TargetLoweringObjectFile {
   const MCSection *DrectveSection;
+  const MCSection *PDataSection;
+  const MCSection *XDataSection;
 public:
   TargetLoweringObjectFileCOFF() {}
   ~TargetLoweringObjectFileCOFF() {}
@@ -194,6 +209,10 @@ public:
   virtual void Initialize(MCContext &Ctx, const TargetMachine &TM);
 
   virtual const MCSection *getEHFrameSection() const;
+  virtual const MCSection *getWin64EHFuncTableSection() const {
+    return PDataSection;
+  }
+  virtual const MCSection *getWin64EHTableSection() const {return XDataSection;}
 
   virtual const MCSection *getDrectveSection() const { return DrectveSection; }
 

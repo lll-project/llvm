@@ -40,7 +40,6 @@ namespace llvm {
   bool JITExceptionHandling;
   bool JITEmitDebugInfo;
   bool JITEmitDebugInfoToDisk;
-  bool UnwindTablesMandatory;
   Reloc::Model RelocationModel;
   CodeModel::Model CMModel;
   bool GuaranteedTailCallOpt;
@@ -143,11 +142,6 @@ EmitJitDebugInfoToDisk("jit-emit-debug-to-disk",
   cl::desc("Emit debug info objfiles to disk"),
   cl::location(JITEmitDebugInfoToDisk),
   cl::init(false));
-static cl::opt<bool, true>
-EnableUnwindTables("unwind-tables",
-  cl::desc("Generate unwinding tables for all functions"),
-  cl::location(UnwindTablesMandatory),
-  cl::init(false));
 
 static cl::opt<llvm::Reloc::Model, true>
 DefRelocationModel("relocation-model",
@@ -227,7 +221,8 @@ TargetMachine::TargetMachine(const Target &T)
     MCRelaxAll(false),
     MCNoExecStack(false),
     MCSaveTempLabels(false),
-    MCUseLoc(true) {
+    MCUseLoc(true),
+    MCUseCFI(true) {
   // Typically it will be subtargets that will adjust FloatABIType from Default
   // to Soft or Hard.
   if (UseSoftFloat)

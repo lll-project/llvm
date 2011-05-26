@@ -469,8 +469,7 @@ FoldCmpLoadFromIndexedGlobal(GetElementPtrInst *GEP, GlobalVariable *GV,
 ///
 /// If we can't emit an optimized form for this expression, this returns null.
 /// 
-static Value *EvaluateGEPOffsetExpression(User *GEP, Instruction &I,
-                                          InstCombiner &IC) {
+static Value *EvaluateGEPOffsetExpression(User *GEP, InstCombiner &IC) {
   TargetData &TD = *IC.getTargetData();
   gep_type_iterator GTI = gep_type_begin(GEP);
   
@@ -533,10 +532,10 @@ static Value *EvaluateGEPOffsetExpression(User *GEP, Instruction &I,
     // Cast to intptrty in case a truncation occurs.  If an extension is needed,
     // we don't need to bother extending: the extension won't affect where the
     // computation crosses zero.
-    if (VariableIdx->getType()->getPrimitiveSizeInBits() > IntPtrWidth)
-      VariableIdx = new TruncInst(VariableIdx, 
-                                  TD.getIntPtrType(VariableIdx->getContext()),
-                                  VariableIdx->getName(), &I);
+    if (VariableIdx->getType()->getPrimitiveSizeInBits() > IntPtrWidth) {
+      const Type *IntPtrTy = TD.getIntPtrType(VariableIdx->getContext());
+      VariableIdx = IC.Builder->CreateTrunc(VariableIdx, IntPtrTy);
+    }
     return VariableIdx;
   }
   
@@ -558,11 +557,10 @@ static Value *EvaluateGEPOffsetExpression(User *GEP, Instruction &I,
   // Okay, we can do this evaluation.  Start by converting the index to intptr.
   const Type *IntPtrTy = TD.getIntPtrType(VariableIdx->getContext());
   if (VariableIdx->getType() != IntPtrTy)
-    VariableIdx = CastInst::CreateIntegerCast(VariableIdx, IntPtrTy,
-                                              true /*SExt*/, 
-                                              VariableIdx->getName(), &I);
+    VariableIdx = IC.Builder->CreateIntCast(VariableIdx, IntPtrTy,
+                                            true /*Signed*/);
   Constant *OffsetVal = ConstantInt::get(IntPtrTy, NewOffs);
-  return BinaryOperator::CreateAdd(VariableIdx, OffsetVal, "offset", &I);
+  return IC.Builder->CreateAdd(VariableIdx, OffsetVal, "offset");
 }
 
 /// FoldGEPICmp - Fold comparisons between a GEP instruction and something
@@ -580,7 +578,7 @@ Instruction *InstCombiner::FoldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
     // This transformation (ignoring the base and scales) is valid because we
     // know pointers can't overflow since the gep is inbounds.  See if we can
     // output an optimized form.
-    Value *Offset = EvaluateGEPOffsetExpression(GEPLHS, I, *this);
+    Value *Offset = EvaluateGEPOffsetExpression(GEPLHS, *this);
     
     // If not, synthesize the offset the hard way.
     if (Offset == 0)
@@ -634,6 +632,7 @@ Instruction *InstCombiner::FoldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
     if (AllZeros)
       return FoldGEPICmp(GEPLHS, GEPRHS->getOperand(0), Cond, I);
 
+    bool GEPsInBounds = GEPLHS->isInBounds() && GEPRHS->isInBounds();
     if (GEPLHS->getNumOperands() == GEPRHS->getNumOperands()) {
       // If the GEPs only differ by one index, compare it.
       unsigned NumDifferences = 0;  // Keep track of # differences.
@@ -656,7 +655,7 @@ Instruction *InstCombiner::FoldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
                                ConstantInt::get(Type::getInt1Ty(I.getContext()),
                                              ICmpInst::isTrueWhenEqual(Cond)));
 
-      else if (NumDifferences == 1) {
+      else if (NumDifferences == 1 && GEPsInBounds) {
         Value *LHSV = GEPLHS->getOperand(DiffOperand);
         Value *RHSV = GEPRHS->getOperand(DiffOperand);
         // Make sure we do a signed comparison here.
@@ -667,6 +666,7 @@ Instruction *InstCombiner::FoldGEPICmp(GEPOperator *GEPLHS, Value *RHS,
     // Only lower this if the icmp is the only user of the GEP or if we expect
     // the result to fold to a constant!
     if (TD &&
+        GEPsInBounds &&
         (isa<ConstantExpr>(GEPLHS) || GEPLHS->hasOneUse()) &&
         (isa<ConstantExpr>(GEPRHS) || GEPRHS->hasOneUse())) {
       // ((gep Ptr, OFFSET1) cmp (gep Ptr, OFFSET2)  --->  (OFFSET1 cmp OFFSET2)
@@ -919,11 +919,11 @@ Instruction *InstCombiner::FoldICmpShrCst(ICmpInst &ICI, BinaryOperator *Shr,
     if (ICI.isSigned() != (Shr->getOpcode() == Instruction::AShr))
       return 0;
     
-    // Otherwise, all lshr and all exact ashr's are equivalent to a udiv/sdiv by
-    // a power of 2.  Since we already have logic to simplify these, transform
-    // to div and then simplify the resultant comparison.
+    // Otherwise, all lshr and most exact ashr's are equivalent to a udiv/sdiv
+    // by a power of 2.  Since we already have logic to simplify these,
+    // transform to div and then simplify the resultant comparison.
     if (Shr->getOpcode() == Instruction::AShr &&
-        !Shr->isExact())
+        (!Shr->isExact() || ShAmtVal == TypeBits - 1))
       return 0;
     
     // Revisit the shift (to delete it).
@@ -1384,9 +1384,9 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
           
           if (Value *NegVal = dyn_castNegVal(BOp1))
             return new ICmpInst(ICI.getPredicate(), BOp0, NegVal);
-          else if (Value *NegVal = dyn_castNegVal(BOp0))
+          if (Value *NegVal = dyn_castNegVal(BOp0))
             return new ICmpInst(ICI.getPredicate(), NegVal, BOp1);
-          else if (BO->hasOneUse()) {
+          if (BO->hasOneUse()) {
             Value *Neg = Builder->CreateNeg(BOp1);
             Neg->takeName(BO);
             return new ICmpInst(ICI.getPredicate(), BOp0, Neg);
@@ -2400,7 +2400,7 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
         // fall-through
       case Instruction::SDiv:
       case Instruction::AShr:
-        if (!BO0->isExact() && !BO1->isExact())
+        if (!BO0->isExact() || !BO1->isExact())
           break;
         return new ICmpInst(I.getPredicate(), BO0->getOperand(0),
                             BO1->getOperand(0));
@@ -2483,9 +2483,8 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
     }
 
     // (X&Z) == (Y&Z) -> (X^Y) & Z == 0
-    if (Op0->hasOneUse() && Op1->hasOneUse() &&
-        match(Op0, m_And(m_Value(A), m_Value(B))) && 
-        match(Op1, m_And(m_Value(C), m_Value(D)))) {
+    if (match(Op0, m_OneUse(m_And(m_Value(A), m_Value(B)))) && 
+        match(Op1, m_OneUse(m_And(m_Value(C), m_Value(D))))) {
       Value *X = 0, *Y = 0, *Z = 0;
       
       if (A == C) {
@@ -2504,6 +2503,32 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
         I.setOperand(0, Op1);
         I.setOperand(1, Constant::getNullValue(Op1->getType()));
         return &I;
+      }
+    }
+    
+    // Transform "icmp eq (trunc (lshr(X, cst1)), cst" to
+    // "icmp (and X, mask), cst"
+    uint64_t ShAmt = 0;
+    ConstantInt *Cst1;
+    if (Op0->hasOneUse() &&
+        match(Op0, m_Trunc(m_OneUse(m_LShr(m_Value(A),
+                                           m_ConstantInt(ShAmt))))) &&
+        match(Op1, m_ConstantInt(Cst1)) &&
+        // Only do this when A has multiple uses.  This is most important to do
+        // when it exposes other optimizations.
+        !A->hasOneUse()) {
+      unsigned ASize =cast<IntegerType>(A->getType())->getPrimitiveSizeInBits();
+      
+      if (ShAmt < ASize) {
+        APInt MaskV =
+          APInt::getLowBitsSet(ASize, Op0->getType()->getPrimitiveSizeInBits());
+        MaskV <<= ShAmt;
+        
+        APInt CmpV = Cst1->getValue().zext(ASize);
+        CmpV <<= ShAmt;
+        
+        Value *Mask = Builder->CreateAnd(A, Builder->getInt(MaskV));
+        return new ICmpInst(I.getPredicate(), Mask, Builder->getInt(CmpV));
       }
     }
   }
